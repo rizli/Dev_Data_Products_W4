@@ -1,0 +1,106 @@
+---
+title: "W4 Assignment"
+author: "Rizli Anshari"
+date: "October 5, 2019"
+output: ioslides_presentation
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, echo = FALSE, include = FALSE}
+set.seed(123)
+setwd("C:/Users/avria/Google Drive/!LEARNING/Data Science - 09.Developing Data Products")
+library(shiny)
+library(leaflet)
+library(dplyr)
+library(leaflet.extras)
+
+```
+
+## Overview
+
+This is an RStudio shiny application developed as a part of final project in the Developing Data Products course in Coursera Data Science Specialization track. The application summarizes earthquake position which occurs in Indonesia with a magnituted higher than 2.5 richter scale. The earthquake occurs in between September 28th to October 5th, 2019.
+
+## The Application includes the following:
+
+- Form of Input used: Radio Button
+- Reactive output displayed as a result of server calculations
+- The server.R and ui.R codes are posted on github at: <https://XXX>
+- The App can be found at: <https://rizlians.shinyapps.io/w4_assigment/>
+
+## R Code for the Application
+
+```{r, echo = TRUE, warning=FALSE}
+
+
+#import data
+data <- read.csv("earthquake_map.csv")
+
+#categorize earthquake depth
+data$depth_type <- ifelse(data$depth <= 70, "shallow", ifelse(data$depth <= 300 | data$depth >70, "intermediate", ifelse(data$depth > 300, "deep", "other")))
+
+#ui function
+ui <- fluidPage(
+mainPanel( 
+leafletOutput(outputId = "mymap"), 
+absolutePanel(top = 60, left = 20, 
+      checkboxInput("markers", "Depth", FALSE),
+      checkboxInput("heat", "Heatmap", FALSE)
+    )
+))
+
+#server function
+server <- function(input, output, session) {
+ pal <- colorNumeric(
+    palette = c('gold', 'orange', 'dark orange', 'orange red', 'red', 'dark red'),
+    domain = data$mag)
+  
+ pal2 <- colorFactor(
+    palette = c('blue', 'yellow', 'red'),
+    domain = data$depth_type
+  )
+  
+output$mymap <- renderLeaflet({
+    leaflet(data) %>% 
+      setView(lng = 134, lat = -6, zoom = 4)  %>% 
+      addTiles() %>% 
+      addCircles(data = data, lat = ~ latitude, lng = ~ longitude, weight = 1, radius = ~sqrt(mag)*25000, popup = ~as.character(mag), label = ~as.character(paste0("Magnitude: ", sep = " ", mag)), color = ~pal(mag), fillOpacity = 0.5)
+})
+  
+  observe({
+    proxy <- leafletProxy("mymap", data = data)
+    proxy %>% clearMarkers()
+    if (input$markers) {
+      proxy %>% addCircleMarkers(stroke = FALSE, color = ~pal2(depth_type), fillOpacity = 0.2,  label = ~as.character(paste0("Magnitude: ", sep = " ", mag))) %>%
+        addLegend("bottomright", pal = pal2, values = data$depth_type,
+                  title = "Depth Type",
+                  opacity = 1)}
+    else {
+      proxy %>% clearMarkers() %>% clearControls()
+    }
+  })
+  
+  observe({
+    proxy <- leafletProxy("mymap", data = data)
+    proxy %>% clearMarkers()
+    if (input$heat) {
+      proxy %>%  addHeatmap(lng=~longitude, lat=~latitude, intensity = ~mag, blur =  10, max = 0.05, radius = 15) 
+      }
+    else{
+      proxy %>% clearHeatmap()
+      }
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+## Earthquake Data in the table
+```{r, echo=FALSE, warning=FALSE}
+p <- read.csv("earthquake_map.csv")
+p
+```
